@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Universe Sandbox</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="ui-container">
+        <h1>Universe Sandbox</h1>
+        <hr>
+        
+        <div class="control-group">
+            <label for="body-type">Spawn Object</label>
+            <select id="body-type">
+                <option value="planet">Planet (Earth-like)</option>
+                <option value="star">Star (Heavy mass)</option>
+                <option value="dust">Space Dust (Light mass)</option>
+                <option value="blackhole">Black Hole (Extreme mass)</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>Simulation Tuning</label>
+            <div class="slider-wrapper">
+                <span>Gravity Strength</span>
+                <input type="range" id="gravity-slider" min="0.1" max="5" step="0.1" value="1">
+            </div>
+            <div class="slider-wrapper">
+                <span>Time Step (Speed)</span>
+                <input type="range" id="time-slider" min="0" max="3" step="0.1" value="1">
+            </div>
+        </div>
+
+        <div class="control-group toggles">
+            <label>
+                <input type="checkbox" id="toggle-trails" checked> Show Orbit Trails
+            </label>
+            <label>
+                <input type="checkbox" id="toggle-grid"> Show Cosmic Grid
+            </label>
+        </div>
+
+        <div class="control-group buttons">
+            <button id="btn-clear" class="btn-danger">Clear Universe</button>
+            <button id="btn-preset">Load Solar System</button>
+        </div>
+
+        <div class="instructions">
+            <h3>Controls</h3>
+            <p><strong>Click & Drag:</strong> Sling an object into orbit with custom velocity vectors.</p>
+            <p><strong>Click:</strong> Place stationary object.</p>
+        </div>
+    </div>
+
+    <canvas id="sandbox-canvas"></canvas>
+
+    <script src="script.js"></script>
+</body>
+</html>
