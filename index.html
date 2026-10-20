@@ -59,3 +59,598 @@
     <script src="script.js"></script>
 </body>
 </html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hyper-Bright Interactive 3D Solar System</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #020208;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #fff;
+        }
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: grab;
+        }
+        #canvas-container:active {
+            cursor: grabbing;
+        }
+        /* UI Overlay */
+        .ui-panel {
+            position: absolute;
+            background: rgba(10, 10, 25, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            padding: 15px;
+            z-index: 10;
+            box-shadow: 0 0 25px rgba(0, 0, 0, 0.5), 0 0 15px rgba(255, 255, 255, 0.05);
+        }
+        #controls {
+            top: 20px;
+            left: 20px;
+            width: 280px;
+        }
+        #info-panel {
+            top: 20px;
+            right: 20px;
+            width: 300px;
+            display: none;
+            border-left: 4px solid #00d2ff;
+        }
+        h1, h2 {
+            margin-top: 0;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        h1 { font-size: 1.1rem; color: #ffcc00; text-transform: uppercase; margin-bottom: 12px; text-shadow: 0 0 10px rgba(255,204,0,0.4); }
+        h2 { font-size: 1.3rem; margin-bottom: 5px; }
+        .control-group {
+            margin-bottom: 12px;
+        }
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+        label {
+            display: block;
+            font-size: 0.75rem;
+            color: #aaa;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+        input[type="range"] {
+            width: 100%;
+            accent-color: #00d2ff;
+            background: #222;
+            height: 6px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .btn-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 6px;
+        }
+        button {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 6px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+        button:hover {
+            background: rgba(0, 210, 255, 0.2);
+            border-color: #00d2ff;
+        }
+        button.active {
+            background: #00d2ff;
+            color: #000;
+            font-weight: bold;
+            border-color: #00d2ff;
+            box-shadow: 0 0 10px rgba(0, 210, 255, 0.5);
+        }
+        .planet-stat {
+            font-size: 0.85rem;
+            margin: 6px 0;
+            color: #ddd;
+        }
+        .planet-stat span {
+            color: #00d2ff;
+            font-weight: bold;
+        }
+        .planet-desc {
+            font-size: 0.8rem;
+            color: #bbb;
+            margin-top: 10px;
+            line-height: 1.4;
+        }
+        #close-info {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: #aaa;
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 0;
+        }
+        #close-info:hover { color: white; }
+        
+        /* Quick instructions banner */
+        #instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.6);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            pointer-events: none;
+            color: #ccc;
+            letter-spacing: 0.5px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <!-- Left Controls Panel -->
+    <div class="ui-panel" id="controls">
+        <h1>Cosmic Engine v2.5</h1>
+        
+        <div class="control-group">
+            <label>Simulation Speed</label>
+            <input type="range" id="speed-slider" min="0" max="5" step="0.1" value="1">
+        </div>
+
+        <div class="control-group">
+            <label>View Mode</label>
+            <div class="btn-grid">
+                <button id="btn-orbit" class="active">Orbit View</button>
+                <button id="btn-top">Top Down</button>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label>Scale Mode</label>
+            <div class="btn-grid">
+                <button id="scale-realistic">Realistic Size</button>
+                <button id="scale-expanded" class="active">Visible Size</button>
+            </div>
+        </div>
+
+        <div class="control-group" style="margin-top: 15px;">
+            <label>Focus Celestial Body</label>
+            <div class="btn-grid" style="grid-template-columns: repeat(3, 1fr); font-size: 0.7rem;">
+                <button class="focus-btn" data-target="Sun">Sun</button>
+                <button class="focus-btn" data-target="Mercury">Merc</button>
+                <button class="focus-btn" data-target="Venus">Venus</button>
+                <button class="focus-btn" data-target="Earth">Earth</button>
+                <button class="focus-btn" data-target="Mars">Mars</button>
+                <button class="focus-btn" data-target="Jupiter">Jup</button>
+                <button class="focus-btn" data-target="Saturn">Sat</button>
+                <button class="focus-btn" data-target="Uranus">Uran</button>
+                <button class="focus-btn" data-target="Neptune">Nept</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Information Panel -->
+    <div class="ui-panel" id="info-panel">
+        <button id="close-info">&times;</button>
+        <h2 id="info-name">Earth</h2>
+        <div class="planet-stat">Type: <span id="info-type">-</span></div>
+        <div class="planet-stat">Orbital Period: <span id="info-period">-</span></div>
+        <div class="planet-stat">Distance from Sun: <span id="info-dist">-</span></div>
+        <p class="planet-desc" id="info-text"></p>
+    </div>
+
+    <div id="instructions">Drag to Rotate | Scroll to Zoom | Click Worlds to Inspect</div>
+
+    <script>
+        // --- DATA SPECIFICATION ---
+        const celestialData = {
+            Sun: { type: "Yellow Dwarf Star", period: "N/A", dist: "0 AU", color: "#ffaa00", desc: "The heart of our solar system. An ultra-dense, blindingly bright plasma powerhouse holding 99.8% of the system's total mass." },
+            Mercury: { type: "Terrestrial Planet", period: "88 Days", dist: "0.39 AU", color: "#8a8d8f", desc: "The smallest and closest planet to the Sun. Swift moving, structurally composed of heavy iron, experiencing extreme temperature swings." },
+            Venus: { type: "Terrestrial Planet", period: "225 Days", dist: "0.72 AU", color: "#e3bb76", desc: "Earth's twin in size, trapped in a runaway greenhouse effect. Shrouded in crushing, toxic carbon dioxide clouds." },
+            Earth: { type: "Terrestrial Planet", period: "365.25 Days", dist: "1.00 AU", color: "#2b82c9", desc: "Our home oasis. The only known cosmic body harboring liquid surface water, an active protective magnetosphere, and complex biological life." },
+            Mars: { type: "Terrestrial Planet", period: "687 Days", dist: "1.52 AU", color: "#c1440e", desc: "The Red Planet. A cold, desert world covered in iron oxide rust dust, featuring massive dead volcanoes and ancient dry riverbeds." },
+            Jupiter: { type: "Gas Giant", period: "12 Years", dist: "5.20 AU", color: "#b07f35", desc: "The King of Planets. A massive gas giant twice as massive as all other planets combined, famous for its millennia-old Great Red Spot storm." },
+            Saturn: { type: "Gas Giant", period: "29 Years", dist: "9.58 AU", color: "#e2bf7d", desc: "Jewel of the Solar System. Adorned with a colossal, highly reflective ring framework made up of billions of chunks of pure water ice and rock fragments." },
+            Uranus: { type: "Ice Giant", period: "84 Years", dist: "19.22 AU", color: "#4b70dd", desc: "An ice giant glowing with pale cyan methane gas. It is uniquely tilted completely on its side, rotating almost horizontally." },
+            Neptune: { type: "Ice Giant", period: "165 Years", dist: "30.05 AU", color: "#274687", desc: "A deep blue, freezing ice giant buffeted by the fastest supersonic winds in the solar system, reaching speeds up to 2,100 kilometers per hour." }
+        };
+
+        // --- ENGINE CONFIG & MAPS ---
+        const config = {
+            baseSpeed: 0.005,
+            currentSpeedModifier: 1,
+            scaleMode: 'expanded', // 'realistic' or 'expanded'
+            viewMode: 'orbit', // 'orbit' or 'top'
+            focusedObject: null
+        };
+
+        // Render parameters mapping
+        const planetsConfig = [
+            { name: "Mercury", semiMajor: 75,  semiMinor: 72,  realSize: 1.2, expSize: 3.2, color: "#9e9e9e", speed: 0.04 },
+            { name: "Venus",   semiMajor: 110, semiMinor: 109, realSize: 2.5, expSize: 5.0, color: "#e6b800", speed: 0.015 },
+            { name: "Earth",   semiMajor: 150, semiMinor: 148, realSize: 2.6, expSize: 5.5, color: "#00d2ff", speed: 0.01 },
+{ name: "Mars",    semiMajor: 195, semiMinor: 192, realSize: 1.5, expSize: 4.2, color: "#ff4500", speed: 0.008 },
+{ name: "Jupiter", semiMajor: 280, semiMinor: 275, realSize: 6.5, expSize: 12.0, color: "#d4a373", speed: 0.002 },
+{ name: "Saturn",  semiMajor: 370, semiMinor: 362, realSize: 5.5, expSize: 10.0, color: "#f4e2bb", speed: 0.0009, hasRings: true },
+{ name: "Uranus",  semiMajor: 450, semiMinor: 446, realSize: 3.8, expSize: 7.5, color: "#a0e8f5", speed: 0.0004 },
+{ name: "Neptune", semiMajor: 520, semiMinor: 516, realSize: 3.7, expSize: 7.2, color: "#3a62f5", speed: 0.0002 }
+];
+// --- SETUP GRAPHICS CANVAS ---
+const container = document.getElementById('canvas-container');
+const canvas = document.createElement('canvas');
+container.appendChild(canvas);
+const ctx = canvas.getContext('2d');
+let width = canvas.width = container.clientWidth;
+let height = canvas.height = container.clientHeight;
+// Camera State
+let camera = {
+x: width / 2,
+y: height / 2 + 100,
+zoom: 1.0,
+pitch: 0.65, // Perspective compression factor (simulate 3D angle)
+yaw: 0,
+targetX: width / 2,
+targetY: height / 2 + 100,
+targetZoom: 1.0,
+targetPitch: 0.65
+};
+// User interaction variables
+let isDragging = false;
+let startX, startY;
+// Initialize positions dynamically
+planetsConfig.forEach(p => {
+p.angle = Math.random() * Math.PI * 2;
+p.x = 0;
+p.y = 0;
+});
+// --- PARTICLES GENERATION (Stars & Belts) ---
+const stars = [];
+for (let i = 0; i < 400; i++) {
+stars.push({
+x: Math.random() * 3000 - 1500,
+y: Math.random() * 3000 - 1500,
+size: Math.random() * 1.5 + 0.5,
+opacity: Math.random() * 0.8 + 0.2
+});
+}
+const asteroids = [];
+// Generate main belt (between Mars: 195 and Jupiter: 280)
+for (let i = 0; i < 600; i++) {
+let dist = 220 + Math.random() * 45;
+let angle = Math.random() * Math.PI * 2;
+asteroids.push({
+semiMajor: dist,
+semiMinor: dist * (0.97 + Math.random() * 0.02),
+angle: angle,
+speed: (0.003 + Math.random() * 0.002),
+size: Math.random() * 1.2 + 0.4,
+brightness: Math.random() * 0.4 + 0.6
+});
+}
+// Kuiper Belt (Beyond Neptune: 520)
+for (let i = 0; i < 400; i++) {
+let dist = 560 + Math.random() * 60;
+let angle = Math.random() * Math.PI * 2;
+asteroids.push({
+semiMajor: dist,
+semiMinor: dist * (0.96 + Math.random() * 0.03),
+angle: angle,
+speed: (0.00005 + Math.random() * 0.0001),
+size: Math.random() * 1.5 + 0.5,
+brightness: Math.random() * 0.3 + 0.5
+});
+}
+// --- EVENT LISTENERS ---
+window.addEventListener('resize', () => {
+width = canvas.width = container.clientWidth;
+height = canvas.height = container.clientHeight;
+if(!config.focusedObject) {
+camera.targetX = width / 2;
+camera.targetY = height / 2 + (camera.pitch * 150);
+}
+});
+// Mouse Dragging for camera position/rotation adjustments
+container.addEventListener('mousedown', (e) => {
+if(e.target !== canvas) return;
+isDragging = true;
+startX = e.clientX;
+startY = e.clientY;
+config.focusedObject = null; // Break focus lock upon manual drag
+document.querySelectorAll('.focus-btn').forEach(b => b.classList.remove('active'));
+});
+window.addEventListener('mousemove', (e) => {
+if (!isDragging) return;
+let dx = e.clientX - startX;
+let dy = e.clientY - startY;
+camera.targetX += dx;
+camera.targetY += dy;
+startX = e.clientX;
+startY = e.clientY;
+});
+window.addEventListener('mouseup', () => isDragging = false);
+// Zoom Handling
+container.addEventListener('wheel', (e) => {
+e.preventDefault();
+let zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
+camera.targetZoom = Math.max(0.15, Math.min(6.0, camera.targetZoom * zoomFactor));
+}, { passive: false });
+// Click Detection for Selection
+container.addEventListener('click', (e) => {
+if (isDragging) return;
+// Check Sun click
+let sunScreenX = (0) * camera.zoom + camera.x;
+let sunScreenY = (0) * camera.zoom * camera.pitch + camera.y;
+let sunSize = (config.scaleMode === 'realistic' ? 14 : 26) * camera.zoom;
+let distToSun = Math.hypot(e.clientX - sunScreenX, e.clientY - sunScreenY);
+if (distToSun <= sunSize + 5) {
+focusOn("Sun");
+return;
+}
+// Check Planets click
+for (let p of planetsConfig) {
+let pScreenX = p.x * camera.zoom + camera.x;
+let pScreenY = p.y * camera.zoom * camera.pitch + camera.y;
+let radius = (config.scaleMode === 'realistic' ? p.realSize : p.expSize) * camera.zoom;
+let dist = Math.hypot(e.clientX - pScreenX, e.clientY - pScreenY);
+if (dist <= radius + 8) { // Added padding for easy tapping
+focusOn(p.name);
+return;
+}
+}
+});
+// UI DOM Logic Controls
+document.getElementById('speed-slider').addEventListener('input', (e) => {
+config.currentSpeedModifier = parseFloat(e.target.value);
+});
+document.getElementById('btn-orbit').addEventListener('click', function() {
+this.classList.add('active');
+document.getElementById('btn-top').classList.remove('active');
+config.viewMode = 'orbit';
+camera.targetPitch = 0.65;
+});
+document.getElementById('btn-top').addEventListener('click', function() {
+this.classList.add('active');
+document.getElementById('btn-orbit').classList.remove('active');
+config.viewMode = 'top';
+camera.targetPitch = 1.0;
+});
+document.getElementById('scale-realistic').addEventListener('click', function() {
+this.classList.add('active');
+document.getElementById('scale-expanded').classList.remove('active');
+config.scaleMode = 'realistic';
+});
+document.getElementById('scale-expanded').addEventListener('click', function() {
+this.classList.add('active');
+document.getElementById('scale-realistic').classList.remove('active');
+config.scaleMode = 'expanded';
+});
+document.querySelectorAll('.focus-btn').forEach(btn => {
+btn.addEventListener('click', function() {
+document.querySelectorAll('.focus-btn').forEach(b => b.classList.remove('active'));
+this.classList.add('active');
+focusOn(this.getAttribute('data-target'));
+});
+});
+document.getElementById('close-info').addEventListener('click', () => {
+document.getElementById('info-panel').style.display = 'none';
+config.focusedObject = null;
+document.querySelectorAll('.focus-btn').forEach(b => b.classList.remove('active'));
+});
+function focusOn(name) {
+config.focusedObject = name;
+const data = celestialData[name];
+document.getElementById('info-name').innerText = name;
+document.getElementById('info-type').innerText = data.type;
+document.getElementById('info-period').innerText = data.period;
+document.getElementById('info-dist').innerText = data.dist;
+document.getElementById('info-text').innerText = data.desc;
+document.getElementById('info-panel').style.display = 'block';
+if(name === "Sun") {
+camera.targetZoom = 1.2;
+} else {
+camera.targetZoom = 2.2;
+}
+}
+// --- CORE LOOP ---
+function animate() {
+// Camera physics smoothing (Lerp)
+camera.zoom += (camera.targetZoom - camera.zoom) * 0.08;
+camera.pitch += (camera.targetPitch - camera.pitch) * 0.08;
+if (config.focusedObject) {
+let targetX = 0, targetY = 0;
+if (config.focusedObject !== "Sun") {
+const p = planetsConfig.find(pl => pl.name === config.focusedObject);
+if (p) {
+targetX = p.x;
+targetY = p.y;
+}
+}
+// Camera smoothly locks onto calculated coordinates
+camera.targetX = width / 2 - targetX * camera.zoom;
+camera.targetY = height / 2 - targetY * camera.zoom * camera.pitch;
+}
+camera.x += (camera.targetX - camera.x) * 0.08;
+camera.y += (camera.targetY - camera.y) * 0.08;
+// Clear Screen
+ctx.fillStyle = "#03030b";
+ctx.fillRect(0, 0, width, height);
+// 1. Draw Starfield Background
+ctx.save();
+ctx.translate(camera.x * 0.05, camera.y * 0.05); // Parallax factor
+stars.forEach(star => {
+ctx.fillStyle = rgba(255, 255, 255, ${star.opacity});
+ctx.fillRect(star.x + width/2, star.y + height/2, star.size, star.size);
+});
+ctx.restore();
+// Calculate current real positions of planets dynamically
+planetsConfig.forEach(p => {
+p.angle += p.speed * config.baseSpeed * config.currentSpeedModifier;
+p.x = Math.cos(p.angle) * p.semiMajor;
+p.y = Math.sin(p.angle) * p.semiMinor;
+});
+// 2. Render Orbital Path Lines (Rear half)
+planetsConfig.forEach(p => {
+ctx.beginPath();
+ctx.ellipse(camera.x, camera.y, p.semiMajor * camera.zoom, p.semiMinor * camera.zoom * camera.pitch, 0, 0, Math.PI * 2);
+ctx.strokeStyle = "rgba(0, 210, 255, 0.08)";
+ctx.lineWidth = 1.5;
+ctx.stroke();
+});
+// 3. Render Asteroid Belt (Back Layer mapping)
+asteroids.forEach(ast => {
+ast.angle += ast.speed * config.baseSpeed * config.currentSpeedModifier;
+let ax = Math.cos(ast.angle) * ast.semiMajor;
+let ay = Math.sin(ast.angle) * ast.semiMinor;
+// Only render back half first if in tilted orbit view mode
+if (config.viewMode === 'top' || ay < 0) {
+let scrX = ax * camera.zoom + camera.x;
+let scrY = ay * camera.zoom * camera.pitch + camera.y;
+ctx.fillStyle = rgba(180, 170, 160, ${ast.brightness});
+ctx.fillRect(scrX, scrY, ast.size * Math.max(0.4, camera.zoom * 0.7), ast.size * Math.max(0.4, camera.zoom * 0.7));
+}
+});
+// 4. Render Hyper-Bright Sun Core
+let sunSize = (config.scaleMode === 'realistic' ? 14 : 26) * camera.zoom;
+let sunX = camera.x;
+let sunY = camera.y;
+if (sunSize > 1) {
+// Outer Solar Plasma Radial Flare Layer
+let glowGrad = ctx.createRadialGradient(sunX, sunY, sunSize * 0.2, sunX, sunY, sunSize * 3.5);
+glowGrad.addColorStop(0, 'rgba(255, 120, 0, 0.45)');
+glowGrad.addColorStop(0.2, 'rgba(255, 170, 0, 0.2)');
+glowGrad.addColorStop(0.6, 'rgba(255, 220, 100, 0.05)');
+glowGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+ctx.fillStyle = glowGrad;
+ctx.beginPath();
+ctx.arc(sunX, sunY, sunSize * 3.5, 0, Math.PI * 2);
+ctx.fill();
+// Ultra Bright Core Glow
+let coreGrad = ctx.createRadialGradient(sunX, sunY, sunSize * 0.1, sunX, sunY, sunSize);
+coreGrad.addColorStop(0, '#ffffff');
+coreGrad.addColorStop(0.3, '#ffea00');
+coreGrad.addColorStop(0.8, '#ff5500');
+coreGrad.addColorStop(1, 'rgba(255,68,0,0)');
+ctx.fillStyle = coreGrad;
+ctx.beginPath();
+ctx.arc(sunX, sunY, sunSize, 0, Math.PI * 2);
+ctx.fill();
+}
+// Sort planets so front objects render over rear objects dynamically if tilted
+let renderQueue = [...planetsConfig];
+if (config.viewMode !== 'top') {
+renderQueue.sort((a, b) => a.y - b.y);
+}
+// 5. Render Planets Loop
+renderQueue.forEach(p => {
+let radius = (config.scaleMode === 'realistic' ? p.realSize : p.expSize) * camera.zoom;
+if (radius < 0.5) radius = 0.5; // Visual fallback baseline
+let pScreenX = p.x * camera.zoom + camera.x;
+let pScreenY = p.y * camera.zoom * camera.pitch + camera.y;
+ctx.save();
+ctx.translate(pScreenX, pScreenY);
+// Saturn Ring System Setup
+if (p.hasRings) {
+ctx.save();
+ctx.scale(1, camera.pitch * 0.85);
+let ringGrad = ctx.createRadialGradient(0, 0, radius * 1.3, 0, 0, radius * 2.3);
+ringGrad.addColorStop(0, 'rgba(212, 185, 137, 0.0)');
+ringGrad.addColorStop(0.2, 'rgba(212, 185, 137, 0.7)');
+ringGrad.addColorStop(0.5, 'rgba(170, 145, 100, 0.8)');
+ringGrad.addColorStop(0.6, 'rgba(80, 70, 60, 0.2)'); // Cassini Division Gap
+ringGrad.addColorStop(0.8, 'rgba(190, 165, 120, 0.6)');
+ringGrad.addColorStop(1, 'rgba(150, 130, 100, 0.0)');
+ctx.strokeStyle = ringGrad;
+ctx.lineWidth = radius * 0.9;
+ctx.beginPath();
+ctx.arc(0, 0, radius * 1.8, 0, Math.PI * 2);
+ctx.stroke();
+ctx.restore();
+}
+// Planet Body Base Sphere Paint
+let bodyGrad = ctx.createRadialGradient(-radius * 0.2, -radius * 0.2, radius * 0.1, 0, 0, radius);
+bodyGrad.addColorStop(0, '#ffffff'); // Dynamic reflection point
+bodyGrad.addColorStop(0.2, p.color);
+bodyGrad.addColorStop(0.8, multiplyColor(p.color, 0.5)); // Falloff shade
+bodyGrad.addColorStop(1, '#000000'); // Shadow side dark terminator
+ctx.fillStyle = bodyGrad;
+ctx.beginPath();
+ctx.arc(0, 0, radius, 0, Math.PI * 2);
+ctx.fill();
+// High Luminescence Atmospheric Corona Overlay
+let atmosphericGlow = ctx.createRadialGradient(0, 0, radius * 0.8, 0, 0, radius * 1.2);
+atmosphericGlow.addColorStop(0, 'rgba(255,255,255,0)');
+atmosphericGlow.addColorStop(0.5, multiplyColor(p.color, 0.4));
+atmosphericGlow.addColorStop(1, 'rgba(0,0,0,0)');
+ctx.fillStyle = atmosphericGlow;
+ctx.beginPath();
+ctx.arc(0, 0, radius * 1.2, 0, Math.PI * 2);
+ctx.fill();
+// Focus Ring Indicator selection box UI overlay
+if (config.focusedObject === p.name) {
+ctx.strokeStyle = '#00d2ff';
+ctx.lineWidth = 1.5;
+ctx.setLineDash([4, 4]);
+ctx.beginPath();
+ctx.arc(0, 0, radius + 8, 0, Math.PI * 2);
+ctx.stroke();
+ctx.setLineDash([]);
+}
+ctx.restore();
+});
+// 6. Forefront Asteroid Render Layer Pass (Front part of the belt)
+if (config.viewMode !== 'top') {
+asteroids.forEach(ast => {
+let ay = Math.sin(ast.angle) * ast.semiMinor;
+if (ay >= 0) {
+let ax = Math.cos(ast.angle) * ast.semiMajor;
+let scrX = ax * camera.zoom + camera.x;
+let scrY = ay * camera.zoom * camera.pitch + camera.y;
+ctx.fillStyle = rgba(180, 170, 160, ${ast.brightness});
+ctx.fillRect(scrX, scrY, ast.size * Math.max(0.4, camera.zoom * 0.7), ast.size * Math.max(0.4, camera.zoom * 0.7));
+}
+});
+}
+requestAnimationFrame(animate);
+}
+// --- MATH UTILITIES ---
+function multiplyColor(hex, percent) {
+hex = hex.replace(/^\s*#|\s*$/g, '');
+if(hex.length == 3){
+hex = hex.replace(/(.)/g, '$1$1');
+}
+var r = parseInt(hex.substr(0, 2), 16),
+g = parseInt(hex.substr(2, 2), 16),
+b = parseInt(hex.substr(4, 2), 16);
+return rgba(${Math.round(r * percent)}, ${Math.round(g * percent)}, ${Math.round(b * percent)}, 0.8);
+}
+// Initialize Engine
+animate();
